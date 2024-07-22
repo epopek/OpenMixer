@@ -23,8 +23,6 @@ class OpenMixer:
 
         self.active_ports = []
         
-        self.stop_thread_event = threading.Event()
-        
         def findAvailiblePorts():
             ports = serial.tools.list_ports.comports()
             for port in ports:
