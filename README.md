@@ -1,4 +1,4 @@
 # OpenMixer
-DIY volume control box for applications on your PC.
+DIY volume control sliders for applications on your PC.
 
 
