@@ -85,36 +85,4 @@ void ReadInputs(){
   }  
 
 }
-// void ReadInputs() {
-//     StringAxis = ""; // Clear the string before accumulating new data
-//     bool dataChanged = false; // Flag to check if any data has changed
 
-//     for (int i = 0; i < list_size; i++) {
-//         // Read and map the value for each potentiometer
-//         int ReadAxis = analogRead(InputAxis[i]);
-//         ReadAxis = map(ReadAxis, 0, 1023, 0, 100); // Map the reading value
-
-//         // Debugging: Print raw analog values for comparison
-//         // Serial.print("Raw Reading for Pot ");
-//         // Serial.print(i);
-//         // Serial.print(": ");
-//         // Serial.println(ReadAxis);
-
-//         // Check if the change is greater than or equal to the threshold
-//         if (abs(ReadAxis - InputAxisPreValues[i]) >= MinChange) {
-//             InputAxisPreValues[i] = ReadAxis; // Update the previous value
-//             dataChanged = true; // Mark that data has changed
-//         }
-
-//         // Append the value to StringAxis
-//         if (i > 0) {
-//             StringAxis += ","; // Add a comma separator if not the first value
-//         }
-//         StringAxis += String(ReadAxis);
-//     }
-
-//     // Print the resulting string if any data has changed
-//     if (dataChanged) {
-//         Serial.println(StringAxis);
-//     }
-// }
