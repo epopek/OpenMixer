@@ -8,29 +8,43 @@ int pot2_pin = A5;
 int pot1_val;
 int pot2_val;
 
-int MinChange = 2; //the pots must report this amount of change before data is sent over the serial to prevent constantly sending the same value
-int PreviousPotVal;
+int MinChange = 5; //the pots must report this amount of change before data is sent over the serial to prevent constantly sending the same value.
+int PreviousPot1Val;
+int PreviousPot2Val;
 
 static char buffer[MAX_SERIAL_BUFFER_SIZE];
+
+const int list_size = 2;
+int InputAxis[list_size] = {A0, A5};
+int InputAxisPreValues[list_size];
+
+String StringAxis;
 
 void setup() {
   // put your setup code here, to run once:
 Serial.begin(9600);
+Serial.println("Start");
+for (int i = 0; i < list_size; i++) {
+        InputAxisPreValues[i] = analogRead(InputAxis[i]);
+  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-pot1_val = analogRead(pot1_pin);
-pot2_val = analogRead(pot2_pin);
 
-pot1_val = map(pot1_val, 0, 1023, 0, 100);
-pot2_val = map(pot2_val, 0, 1023, 0, 100);
+ReadInputs();
 
-    if (abs(pot1_val - PreviousPotVal) >=MinChange||abs(pot2_val - PreviousPotVal) >=MinChange){ //prevents Pots from sending data constantly (they only send when change is detected)
-      Serial.print(pot1_val); Serial.print(","); Serial.println(pot2_val);
-      PreviousPotVal = pot1_val;
+// pot1_val = analogRead(pot1_pin);
+// pot2_val = analogRead(pot2_pin);
+
+// pot1_val = map(pot1_val, 0, 1023, 0, 100);
+// pot2_val = map(pot2_val, 0, 1023, 0, 100);
+
+    // if (abs(pot1_val - PreviousPot1Val) >=MinChange||abs(pot2_val - PreviousPot2Val) >=MinChange){ //prevents Pots from sending data constantly (they only send when change is detected).
+    //   //Serial.print(pot1_val); Serial.print(","); Serial.println(pot2_val);
+    //   PreviousPot1Val = pot1_val;
+    //   PreviousPot2Val = pot2_val;
     // }
-
+  
   if (Serial.available() > 0){
     char incomingChar = Serial.read();
     if (incomingChar == '\r' || incomingChar == '\n'){
@@ -43,7 +57,6 @@ pot2_val = map(pot2_val, 0, 1023, 0, 100);
         }
       }
     }
-  }
 }
 
 void ProcessCommand(char*command){
@@ -51,3 +64,57 @@ void ProcessCommand(char*command){
     Serial.println("2");
   }
 }
+
+void ReadInputs(){
+  StringAxis = "";
+  for (int i = 0; i < list_size; i++) {
+        int ReadAxis = analogRead(InputAxis[i]);
+          
+          ReadAxis = map(ReadAxis, 0, 1023, 0, 100);
+          StringAxis += String(ReadAxis) + String(",");
+        if (abs(ReadAxis - InputAxisPreValues[i]) >= MinChange) {
+            InputAxisPreValues[i] = ReadAxis;
+            Serial.println(StringAxis);
+        //     Serial.print("Axis ");
+        //     Serial.print(i);
+        //     Serial.print(": ");
+        //     Serial.println(ReadAxis);
+      
+    } 
+  
+  }  
+
+}
+// void ReadInputs() {
+//     StringAxis = ""; // Clear the string before accumulating new data
+//     bool dataChanged = false; // Flag to check if any data has changed
+
+//     for (int i = 0; i < list_size; i++) {
+//         // Read and map the value for each potentiometer
+//         int ReadAxis = analogRead(InputAxis[i]);
+//         ReadAxis = map(ReadAxis, 0, 1023, 0, 100); // Map the reading value
+
+//         // Debugging: Print raw analog values for comparison
+//         // Serial.print("Raw Reading for Pot ");
+//         // Serial.print(i);
+//         // Serial.print(": ");
+//         // Serial.println(ReadAxis);
+
+//         // Check if the change is greater than or equal to the threshold
+//         if (abs(ReadAxis - InputAxisPreValues[i]) >= MinChange) {
+//             InputAxisPreValues[i] = ReadAxis; // Update the previous value
+//             dataChanged = true; // Mark that data has changed
+//         }
+
+//         // Append the value to StringAxis
+//         if (i > 0) {
+//             StringAxis += ","; // Add a comma separator if not the first value
+//         }
+//         StringAxis += String(ReadAxis);
+//     }
+
+//     // Print the resulting string if any data has changed
+//     if (dataChanged) {
+//         Serial.println(StringAxis);
+//     }
+// }
