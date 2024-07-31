@@ -66,20 +66,6 @@ void ProcessCommand(char*command){
   }
 }
 
-void Readinputs(){
-  StringAxis = "";
-  for (int i = 0; i < list_size; i++) {
-        int ReadAxis = analogRead(InputAxis[i]);
-          
-          ReadAxis = map(ReadAxis, 0, 1023, 0, 100);
-          StringAxis += String(ReadAxis) + String(",");
-        if (abs(ReadAxis - InputAxisPreValues[i]) >= MinChange) {
-            InputAxisPreValues[i] = ReadAxis;
-            Serial.println(StringAxis);   
-    } 
-  }  
-}
-
 void ReadInputs() {
     StringAxis = ""; 
     bool change = false; 
