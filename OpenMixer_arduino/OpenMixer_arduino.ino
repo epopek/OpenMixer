@@ -8,7 +8,7 @@ int pot2_pin = A5;
 int pot1_val;
 int pot2_val;
 
-int MinChange = 5; //the pots must report this amount of change before data is sent over the serial to prevent constantly sending the same value.
+int MinChange = 2; //the pots must report this amount of change before data is sent over the serial to prevent constantly sending the same value.
 int PreviousPot1Val;
 int PreviousPot2Val;
 
@@ -21,9 +21,10 @@ int InputAxisPreValues[list_size];
 String StringAxis;
 
 void setup() {
+
   // put your setup code here, to run once:
 Serial.begin(9600);
-Serial.println("Start");
+//Serial.println("Established");
 for (int i = 0; i < list_size; i++) {
         InputAxisPreValues[i] = analogRead(InputAxis[i]);
   }
@@ -65,7 +66,7 @@ void ProcessCommand(char*command){
   }
 }
 
-void ReadInputs(){
+void Readinputs(){
   StringAxis = "";
   for (int i = 0; i < list_size; i++) {
         int ReadAxis = analogRead(InputAxis[i]);
@@ -74,15 +75,26 @@ void ReadInputs(){
           StringAxis += String(ReadAxis) + String(",");
         if (abs(ReadAxis - InputAxisPreValues[i]) >= MinChange) {
             InputAxisPreValues[i] = ReadAxis;
-            Serial.println(StringAxis);
-        //     Serial.print("Axis ");
-        //     Serial.print(i);
-        //     Serial.print(": ");
-        //     Serial.println(ReadAxis);
-      
+            Serial.println(StringAxis);   
     } 
-  
   }  
-
 }
 
+void ReadInputs() {
+    StringAxis = ""; 
+    bool change = false; 
+    
+    for (int i = 0; i < list_size; i++) {
+        int ReadAxis = analogRead(InputAxis[i]);
+        ReadAxis = map(ReadAxis, 0, 1023, 0, 100);
+        StringAxis += String(ReadAxis) + String(",");
+
+        if (abs(ReadAxis - InputAxisPreValues[i]) >= MinChange) {
+            InputAxisPreValues[i] = ReadAxis;
+            change = true; 
+        }
+    }
+    if (change) {
+        Serial.println(StringAxis);
+    }
+}
