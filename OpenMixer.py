@@ -23,7 +23,7 @@ class OpenMixer:
 
         self.stop_event = threading.Event()
         
-        self.all_apps = ['Firefox']
+        self.all_apps = ['Firefox'] #delete once auto detection works
         
         self.sessions = AudioUtilities.GetAllSessions()
 
@@ -171,4 +171,3 @@ class OpenMixer:
         return self.window.winfo_exists()
 
 OpenMixer()
-
