@@ -21,6 +21,8 @@ class OpenMixer:
         self.window.geometry("1000x500")#set window size in pixels
         self.window.title("OpenMixer")
 
+        self.stop_event = threading.Event()
+        
         self.all_apps = ['Firefox']
         
         self.sessions = AudioUtilities.GetAllSessions()
@@ -71,62 +73,64 @@ class OpenMixer:
 
             self.selected_port = serial.Serial(f"{selected[0]}", 9600)
             
+            self.stop_event.clear()
             self.thread = threading.Thread(target=self.ReadAndProcess) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
             self.thread.start()
 
     def ReadAndProcess(self):
         num = 0
-        while True:
+        while not self.stop_event.is_set():
             try:
-                read_data = self.selected_port.readline().decode("utf-8").strip()
+                try:
+                    read_data = self.selected_port.readline().decode("utf-8").strip()
+                    
+                    data_to_list = [x.strip() for x in read_data.split(",") if x.strip()]
+                    
+                    if not data_to_list:
+                        print("No data received")
+                        continue
+                    
+                        #continue
+
+                    if num >= len(self.detectedPotsAndFunctions):
+                        num = 0 
+
+                    pot_function = self.detectedPotsAndFunctions[num]
+                    pot_index = pot_function[1]
+                    app_name = pot_function[2]
+
+                    if pot_index < len(data_to_list):
+                        try:
+                            volume_value = int(data_to_list[pot_index]) / 100
+                            self.changeVolume(app_name, volume_value)
+                        except ValueError:
+                            print(f"Error: Invalid value received: {data_to_list[pot_index]}")
+                    else:
+                        print(f"Error: Index {pot_index} not in range")
+                    num += 1
+
+                except IndexError:
+                    print(f"Error reading and processing data")
+                    continue #IndexError is called if the user connects to the Active COM port before selecting a program to control with the pots. 
+                    
                 
-                data_to_list = [x.strip() for x in read_data.split(",") if x.strip()]
-                
-                if not data_to_list:
-                    print("No data received")
-                    continue
-
-                if num >= len(self.detectedPotsAndFunctions):
-                    num = 0 
-
-                pot_function = self.detectedPotsAndFunctions[num]
-                pot_index = pot_function[1]
-                app_name = pot_function[2]
-
-                if pot_index < len(data_to_list):
-                    try:
-                        volume_value = int(data_to_list[pot_index]) / 100
-                        self.changeVolume(app_name, volume_value)
-                    except ValueError:
-                        print(f"Error: Invalid volume value received: {data_to_list[pot_index]}")
-                else:
-                    print(f"Error: Index {pot_index} not in range")
-                num += 1
-
+            except AttributeError:
+                print('here')
+           
             except Exception as e:
-                if self.window.winfo_exists():############################################################## TODO - this needs to check if the window is open and if its not the function needs to shutdown
-                    print("The window is open.")
-                else:
-                    print("The window is closed.")
-                print(f"Error reading and processing data: {e}")
-                #messagebox.showerror("Please select a program to control")
+                print(f"Unexpected Error - {e}")
+                self.stop_event.set()
 
-            finally:
-                if not self.selected_port.is_open: #close the serial port when the GUI is closed (otherwise it gets stuck in an infinite error loop)
-                    break
-    
     def Shutdown(self):
-        try: #otherwise the user cannot close the window until a COM port is selected
-            self.window.destroy()  # Close the Tkinter window
-            self.selected_port.close()
-        except AttributeError:
-            #self.window.destroy()
-            pass
+        self.stop_event.set()
+        self.window.destroy() #destroy the window before closing the threads to make it appear that the program has been closed 
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=2) #wait 2 seconds to close the active threads otherwise weird errors occur
+        self.selected_port.close()
+        
 
     def SetPotFunctions(self, id, pot_num, pot_name):
-        #print(pot_num, pot_name)
         selected_func = id.widget.get()
-        #print(selected_func)
         self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
 
     def CreatePotComboFunctionBoxes(self):
@@ -147,13 +151,12 @@ class OpenMixer:
         return query_numberofPOTS
     
     def DetectNewPrograms(self): #Constantly searches for new programs that were opened and can be controlled
-        while True:
+        while not self.stop_event.is_set():
             self.sessions = AudioUtilities.GetAllSessions()
             time.sleep(2)
     
     def IterateNewPrograms(self):####################################################################################TODO - this needs to iterate through all active programs and add them to the comboboxes
-        try: #need this try and except block otherwise the tkinter window would crash
-           
+        try: #need this try and except block otherwise the tkinter window would crash 
            for session in sessions:
                 process = session.Process
                 print(process)
@@ -166,4 +169,6 @@ class OpenMixer:
     
     def IsWindowClosed(self):
         return self.window.winfo_exists()
+
 OpenMixer()
+
