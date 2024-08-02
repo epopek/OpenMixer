@@ -11,6 +11,8 @@ import ast
 import threading
 import configparser
 import time
+import configparser
+import os 
 
 class OpenMixer:
 
@@ -27,6 +29,7 @@ class OpenMixer:
         self.potboxlist = []
         
         self.sessions = AudioUtilities.GetAllSessions()
+        self.devices = AudioUtilities.GetAllDevices()
 
         self.ProgramDetectionThread = threading.Thread(target=self.DetectNewPrograms)
         self.ProgramDetectionThread.start()
@@ -34,6 +37,13 @@ class OpenMixer:
 
         self.detectedPotsAndFunctions = []
         self.active_ports = []
+        
+        self.config = configparser.ConfigParser()
+        self.SetupFile = "OpenMixerSetup.ini"
+        self.ReadConfigFile()
+        if os.path.exists(self.SetupFile) == False:
+            with open(self.SetupFile, "x") as f:
+                print('Created') 
 
         def findAvailiblePorts():
             ports = serial.tools.list_ports.comports()
@@ -68,15 +78,18 @@ class OpenMixer:
             return index_COM
     
     def EstablishPortConnection(self, event):
-            selected = self.Return_COM_Index()
-            selected = self.active_ports[selected]
-            selected = ast.literal_eval(selected)
+            try:
+                selected = self.Return_COM_Index()
+                selected = self.active_ports[selected]
+                selected = ast.literal_eval(selected)
 
-            self.selected_port = serial.Serial(f"{selected[0]}", 9600)
-            
-            self.stop_event.clear()
-            self.thread = threading.Thread(target=self.ReadAndProcess) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
-            self.thread.start()
+                self.selected_port = serial.Serial(f"{selected[0]}", 9600)
+                
+                self.stop_event.clear()
+                self.thread = threading.Thread(target=self.ReadAndProcess) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
+                self.thread.start()
+            except Exception as e:
+                messagebox.showerror("Port Busy",message=f"Port: {selected[0]} is currently in use by another application")
 
     def ReadAndProcess(self):
         num = 0
@@ -90,9 +103,6 @@ class OpenMixer:
                     if not data_to_list:
                         print("No data received")
                         continue
-                    
-                        #continue
-
                     if num >= len(self.detectedPotsAndFunctions):
                         num = 0 
 
@@ -103,7 +113,10 @@ class OpenMixer:
                     if pot_index < len(data_to_list):
                         try:
                             volume_value = int(data_to_list[pot_index]) / 100
-                            self.changeVolume(app_name, volume_value)
+                            if app_name != 'microphone':
+                                self.changeVolume(app_name, volume_value)
+                            elif app_name =='microphone':
+                                self.set_microphone_volume(volume_value)
                         except ValueError:
                             print(f"Error: Invalid value received: {data_to_list[pot_index]}")
                     else:
@@ -112,9 +125,8 @@ class OpenMixer:
 
                 except IndexError:
                     print(f"Error reading and processing data")
-                    continue #IndexError is called if the user connects to the Active COM port before selecting a program to control with the pots. 
-                    
-                
+                    continue #IndexError is called if the user connects to the Active COM port before selecting a program to control with the pots.
+               
             except AttributeError:
                 print('here')
            
@@ -129,7 +141,6 @@ class OpenMixer:
             self.thread.join(timeout=2) #wait 2 seconds to close the active threads otherwise weird errors occur
         self.selected_port.close()
         
-
     def SetPotFunctions(self, id, pot_num, pot_name):
         selected_func = id.widget.get()
         self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
@@ -143,7 +154,7 @@ class OpenMixer:
             self.potbox.grid(row=1+grid_space, column=2)
             self.potbox.bind("<<ComboboxSelected>>", lambda id, idx=index, n=name: self.SetPotFunctions(id, idx, n))
             self.potboxlist.append(self.potbox)
-            
+
             potlabel = Label(self.window, text=name)
             potlabel.grid(row=1+grid_space, column=4)
             grid_space += 4
@@ -156,28 +167,23 @@ class OpenMixer:
         while not self.stop_event.is_set():
             self.sessions = AudioUtilities.GetAllSessions()
             self.IterateNewPrograms()
-            time.sleep(2)
+            time.sleep(2) #This function is running in a thread so waiting 2 seconds shouldn't cause any issues with the rest of the program
     
-    def IterateNewPrograms(self):####################################################################################TODO - this needs to iterate through all active programs and add them to the comboboxes
-        all_apps_set = set(self.all_apps)
+    def IterateNewPrograms(self):#Constatly updates the list of active programs and removes them once they're no longer detected running
         if not self.stop_event.is_set():
-            try: #need this try and except block otherwise the tkinter window would crash 
-                templist = []
+            self.all_apps = []
+            self.all_apps.append('microphone')
+            self.all_apps.append('master')
+            try: #need this try and except block otherwise the tkinter window would crash  
                 for session in self.sessions:
                         process = session.Process
                         if process:
                             process_name = process.name()
-                            templist.append(process_name)
                             if process_name not in self.all_apps:
                                 self.all_apps.append(process_name)
                                 self.UpdateAllComboboxes()
-                            
-                
-                
-            
             except Exception as e:
                 print(f"HERE {e}")
-        #print(self.all_apps)
     
     def UpdateAllComboboxes(self):
         for potbox in self.potboxlist:
@@ -185,5 +191,24 @@ class OpenMixer:
     
     def IsWindowClosed(self):
         return self.window.winfo_exists()
+
+    def ReadConfigFile(self):
+        self.config.read(self.SetupFile)
+
+    def set_microphone_volume(self, volume_level):
+        print(volume_level)
+        # Find the microphone device
+        # for device in self.devices:
+        #     print(device)
+        #     if device.Type == 'Capture': 
+        #         print(device)
+        #         # endpoint = AudioUtilities.GetDevice(device.id)
+        #         # volume = endpoint.Activate(ISimpleAudioVolume, CLSCTX_ALL, None)
+               
+        #         # volume.SetMasterVolume(volume_level, None)
+        #         # print(f"Microphone volume set to {volume_level * 100}%")
+        #         # return
+        # print("Microphone not found.")
+
 
 OpenMixer()
