@@ -23,7 +23,8 @@ class OpenMixer:
 
         self.stop_event = threading.Event()
         
-        self.all_apps = ['Firefox'] #delete once auto detection works
+        self.all_apps = [] 
+        self.potboxlist = []
         
         self.sessions = AudioUtilities.GetAllSessions()
 
@@ -138,9 +139,10 @@ class OpenMixer:
         grid_space = 0
         
         for index, name in enumerate(boxes):
-            potbox = ttk.Combobox(self.window, values=self.all_apps)
-            potbox.grid(row=1+grid_space, column=2)
-            potbox.bind("<<ComboboxSelected>>", lambda id, idx=index, n=name: self.SetPotFunctions(id, idx, n))
+            self.potbox = ttk.Combobox(self.window, values=self.all_apps)
+            self.potbox.grid(row=1+grid_space, column=2)
+            self.potbox.bind("<<ComboboxSelected>>", lambda id, idx=index, n=name: self.SetPotFunctions(id, idx, n))
+            self.potboxlist.append(self.potbox)
             
             potlabel = Label(self.window, text=name)
             potlabel.grid(row=1+grid_space, column=4)
@@ -153,19 +155,33 @@ class OpenMixer:
     def DetectNewPrograms(self): #Constantly searches for new programs that were opened and can be controlled
         while not self.stop_event.is_set():
             self.sessions = AudioUtilities.GetAllSessions()
+            self.IterateNewPrograms()
             time.sleep(2)
     
     def IterateNewPrograms(self):####################################################################################TODO - this needs to iterate through all active programs and add them to the comboboxes
-        try: #need this try and except block otherwise the tkinter window would crash 
-           for session in sessions:
-                process = session.Process
-                print(process)
-                if process:
-                    process_name = process.name()
-                    self.all_apps.append(process_name)
-                    print(process.name())
-        except:
-            pass
+        all_apps_set = set(self.all_apps)
+        if not self.stop_event.is_set():
+            try: #need this try and except block otherwise the tkinter window would crash 
+                templist = []
+                for session in self.sessions:
+                        process = session.Process
+                        if process:
+                            process_name = process.name()
+                            templist.append(process_name)
+                            if process_name not in self.all_apps:
+                                self.all_apps.append(process_name)
+                                self.UpdateAllComboboxes()
+                            
+                
+                
+            
+            except Exception as e:
+                print(f"HERE {e}")
+        #print(self.all_apps)
+    
+    def UpdateAllComboboxes(self):
+        for potbox in self.potboxlist:
+            potbox['values'] = self.all_apps
     
     def IsWindowClosed(self):
         return self.window.winfo_exists()
