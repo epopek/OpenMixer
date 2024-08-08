@@ -23,7 +23,7 @@ class OpenMixer:
         self.window.geometry("1000x500")#set window size in pixels
         self.window.title("OpenMixer")
 
-        self.stop_event = threading.Event()
+        self.stop_event = threading.Event() #This is the stop event for all the threads and helps them shut down when the program is closed
         
         self.all_apps = [] 
         self.potboxlist = []
