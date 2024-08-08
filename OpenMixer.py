@@ -141,10 +141,24 @@ class OpenMixer:
             self.thread.join(timeout=2) #wait 2 seconds to close the active threads otherwise weird errors occur
         self.selected_port.close()
         
-    def SetPotFunctions(self, id, pot_num, pot_name):
+    def SetPotFunctions(self, id, pot_num, pot_name): ##############################FIX THIS FUNCTION - it should check if there is already a function set for the pot and removes it from this list if there is and updates it with the new selected funciton
         selected_func = id.widget.get()
-        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
-
+        
+        if len(self.detectedPotsAndFunctions) != 0:
+            for x in range(len(self.detectedPotsAndFunctions)):
+                index_pot = self.detectedPotsAndFunctions[x][0] 
+                try:
+                    if index_pot == pot_name:
+                        self.detectedPotsAndFunctions.remove(self.detectedPotsAndFunctions[x]) 
+                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
+                    else:
+                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
+                except IndexError:
+                    pass
+        else:
+            self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
+        print(self.detectedPotsAndFunctions)
+    
     def CreatePotComboFunctionBoxes(self):
         boxes = ["Pot 1", "Pot 2", "Pot 3", "Pot 4"]
         grid_space = 0
@@ -195,7 +209,7 @@ class OpenMixer:
     def ReadConfigFile(self):
         self.config.read(self.SetupFile)
 
-    def set_microphone_volume(self, volume_level):
+    def set_microphone_volume(self, volume_level): #be able to set microphone level
         print(volume_level)
         # Find the microphone device
         # for device in self.devices:

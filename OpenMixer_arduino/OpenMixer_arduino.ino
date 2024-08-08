@@ -15,7 +15,7 @@ int PreviousPot2Val;
 static char buffer[MAX_SERIAL_BUFFER_SIZE];
 
 const int list_size = 2;
-int InputAxis[list_size] = {A0, A5};
+int InputAxis[list_size] = {A0, A5}; //Enter pin names that the potentiometers are connected to here.
 int InputAxisPreValues[list_size];
 
 String StringAxis;
