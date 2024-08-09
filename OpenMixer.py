@@ -39,12 +39,23 @@ class OpenMixer:
         self.active_ports = []
         
         self.config = configparser.ConfigParser()
-        self.SetupFile = "OpenMixerSetup.ini"
-        self.ReadConfigFile()
-        if os.path.exists(self.SetupFile) == False:
-            with open(self.SetupFile, "x") as f:
-                print('Created') 
+        self.SetupFileName = "OpenMixerSetup.ini"
+        self.Configdata = {"LastUsedPort": "None", "Pot 1": "None", "Pot 2": "None", "Pot 3": "None", "Pot 4": "None"}
+        
+        if os.path.exists(self.SetupFileName) == False: #check if the path exists, and if it doesn't then create it. 
+            with open(self.SetupFileName, "x") as f:
+                self.WriteConfigFile()
+        else:
+            self.config.read(self.SetupFileName)
+            try:
+                saved_port = self.config["Setup"]["lastusedport"]
+                if saved_port != "None":
+                    self.selected_port = saved_port
+                    self.SelectPortsBox.set(str(saved_port))
+            except KeyError:
+                pass
 
+        
         def findAvailiblePorts():
             ports = serial.tools.list_ports.comports()
             for port in ports:
@@ -78,18 +89,21 @@ class OpenMixer:
             return index_COM
     
     def EstablishPortConnection(self, event):
+            set_port = self.config["Setup"]["lastusedport"]
             try:
                 selected = self.Return_COM_Index()
                 selected = self.active_ports[selected]
                 selected = ast.literal_eval(selected)
 
                 self.selected_port = serial.Serial(f"{selected[0]}", 9600)
+                self.Configdata['lastusedport'] = str(self.selected_port)
                 
                 self.stop_event.clear()
                 self.thread = threading.Thread(target=self.ReadAndProcess) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
                 self.thread.start()
             except Exception as e:
                 messagebox.showerror("Port Busy",message=f"Port: {selected[0]} is currently in use by another application")
+                print(e)
 
     def ReadAndProcess(self):
         num = 0
@@ -135,6 +149,7 @@ class OpenMixer:
                 self.stop_event.set()
 
     def Shutdown(self):
+        self.WriteConfigFile()
         self.stop_event.set()
         self.window.destroy() #destroy the window before closing the threads to make it appear that the program has been closed 
         if self.thread and self.thread.is_alive():
@@ -207,7 +222,15 @@ class OpenMixer:
         return self.window.winfo_exists()
 
     def ReadConfigFile(self):
-        self.config.read(self.SetupFile)
+        
+        return 
+    
+    def WriteConfigFile(self):
+        
+        with open(self.SetupFileName, "w") as settings:
+            #self.config["Setup"] = self.Configdata
+            self.config.write(settings)
+            print("Data written")
 
     def set_microphone_volume(self, volume_level): #be able to set microphone level
         print(volume_level)
