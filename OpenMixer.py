@@ -22,7 +22,7 @@ class OpenMixer:
         self.window = Tk() #initialize window
         self.window.geometry("1000x500")#set window size in pixels
         self.window.title("OpenMixer")
-
+        self.center_window()
         self.stop_event = threading.Event() #This is the stop event for all the threads and helps them shut down when the program is closed
         
         self.all_apps = [] 
@@ -33,47 +33,35 @@ class OpenMixer:
 
         self.ProgramDetectionThread = threading.Thread(target=self.DetectNewPrograms)
         self.ProgramDetectionThread.start()
-        #self.IterateNewPrograms()
 
         self.detectedPotsAndFunctions = []
         self.active_ports = []
         
         self.config = configparser.ConfigParser()
         self.SetupFileName = "OpenMixerSetup.ini"
-        self.Configdata = {"LastUsedPort": "None", "Pot 1": "None", "Pot 2": "None", "Pot 3": "None", "Pot 4": "None"}
-        
-        if os.path.exists(self.SetupFileName) == False: #check if the path exists, and if it doesn't then create it. 
-            with open(self.SetupFileName, "x") as f:
-                self.WriteConfigFile()
-        else:
-            self.config.read(self.SetupFileName)
-            try:
-                saved_port = self.config["Setup"]["lastusedport"]
-                if saved_port != "None":
-                    self.selected_port = saved_port
-                    self.SelectPortsBox.set(str(saved_port))
-            except KeyError:
-                pass
-
+        self.Configdata = {}
+        self.config.add_section("Setup")
         
         def findAvailiblePorts():
             ports = serial.tools.list_ports.comports()
             for port in ports:
-                self.active_ports.append(f"['{port.device}', '{port.description}', '{port.manufacturer}']")
-                  
+                self.active_ports.append(f"['{port.device}', '{port.description}', '{port.manufacturer}']")    
         findAvailiblePorts()
         
         self.SelectPortsBox = ttk.Combobox(state='readonly', values=self.active_ports, width=50) 
         self.SelectPortsBox.set('Select Port')
         self.SelectPortsBox.bind("<<ComboboxSelected>>", self.EstablishPortConnection)
-
-        self.SelectPortsBox.grid(row=5, column=5)    
-
+        self.SelectPortsBox.grid(row=1, column=8) 
+        
+        self.ReadAndProcess_active = False
+        
+        self.Startup()
+        
         self.CreatePotComboFunctionBoxes()
 
         self.window.protocol("WM_DELETE_WINDOW", self.Shutdown)
         self.window.mainloop()
-        
+    
     def changeVolume(self, app, volume_level):
             try: #need this try and except block otherwise the tkinter window would crash
                 for session in self.sessions: 
@@ -89,21 +77,32 @@ class OpenMixer:
             return index_COM
     
     def EstablishPortConnection(self, event):
-            set_port = self.config["Setup"]["lastusedport"]
+            try:
+                set_port = self.config["Setup"]["port"]
+            except KeyError:
+                pass
+    
             try:
                 selected = self.Return_COM_Index()
                 selected = self.active_ports[selected]
                 selected = ast.literal_eval(selected)
 
                 self.selected_port = serial.Serial(f"{selected[0]}", 9600)
-                self.Configdata['lastusedport'] = str(self.selected_port)
                 
-                self.stop_event.clear()
-                self.thread = threading.Thread(target=self.ReadAndProcess) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
-                self.thread.start()
+                self.config.set("Setup", "Port", str(selected[0]))
+                self.config.set("Setup", "port_name", str(self.selected_port.name))
+                
+                if self.ReadAndProcess_active == False:
+                    self.ThreadFunction(self.ReadandProcess)
+                
             except Exception as e:
                 messagebox.showerror("Port Busy",message=f"Port: {selected[0]} is currently in use by another application")
                 print(e)
+
+    def ThreadFunction(self, targetFunction):
+        self.stop_event.clear()
+        self.thread = threading.Thread(target=targetFunction) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
+        self.thread.start()
 
     def ReadAndProcess(self):
         num = 0
@@ -141,14 +140,16 @@ class OpenMixer:
                     print(f"Error reading and processing data")
                     continue #IndexError is called if the user connects to the Active COM port before selecting a program to control with the pots.
                
-            except AttributeError:
-                print('here')
+            except AttributeError as p:
+                print('line 157')
+                print(p)
            
             except Exception as e:
                 print(f"Unexpected Error - {e}")
                 self.stop_event.set()
 
     def Shutdown(self):
+        self.config.set("Setup", "Potentiometers", str(self.detectedPotsAndFunctions))
         self.WriteConfigFile()
         self.stop_event.set()
         self.window.destroy() #destroy the window before closing the threads to make it appear that the program has been closed 
@@ -158,21 +159,24 @@ class OpenMixer:
         
     def SetPotFunctions(self, id, pot_num, pot_name): ##############################FIX THIS FUNCTION - it should check if there is already a function set for the pot and removes it from this list if there is and updates it with the new selected funciton
         selected_func = id.widget.get()
-        
+    
         if len(self.detectedPotsAndFunctions) != 0:
             for x in range(len(self.detectedPotsAndFunctions)):
                 index_pot = self.detectedPotsAndFunctions[x][0] 
                 try:
                     if index_pot == pot_name:
                         self.detectedPotsAndFunctions.remove(self.detectedPotsAndFunctions[x]) 
-                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
+                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
                     else:
-                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
-                except IndexError:
-                    pass
+                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
+                    
+                except IndexError as e:
+                    print(e)
+                    pass     
         else:
-            self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func])
-        print(self.detectedPotsAndFunctions)
+            self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
+        #print(self.detectedPotsAndFunctions)
+        #self.config.set("Setup", pot_name, str([pot_name, pot_num, selected_func]))
     
     def CreatePotComboFunctionBoxes(self):
         boxes = ["Pot 1", "Pot 2", "Pot 3", "Pot 4"]
@@ -188,9 +192,9 @@ class OpenMixer:
             potlabel.grid(row=1+grid_space, column=4)
             grid_space += 4
 
-    def StartUp():
-        query_numberofPOTS = self.selected_port.send("?POTS\n")
-        return query_numberofPOTS
+    # def StartUp():
+    #     query_numberofPOTS = self.selected_port.send("?POTS\n")
+    #     return query_numberofPOTS
     
     def DetectNewPrograms(self): #Constantly searches for new programs that were opened and can be controlled
         while not self.stop_event.is_set():
@@ -226,9 +230,7 @@ class OpenMixer:
         return 
     
     def WriteConfigFile(self):
-        
         with open(self.SetupFileName, "w") as settings:
-            #self.config["Setup"] = self.Configdata
             self.config.write(settings)
             print("Data written")
 
@@ -246,6 +248,45 @@ class OpenMixer:
         #         # print(f"Microphone volume set to {volume_level * 100}%")
         #         # return
         # print("Microphone not found.")
+    
+    def center_window(self):
+        # Get the screen dimensions
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        width = 1000
+        height = 500
+        # Calculate the position of the window
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+        
+        # Set the dimensions and position of the window
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
 
+    def Startup(self):
+        if os.path.exists(self.SetupFileName) == False: #check if the path exists, and if it doesn't then create it. 
+            with open(self.SetupFileName, "x") as f:
+                self.WriteConfigFile()
+        else:
+            self.config.read(self.SetupFileName)
+            try:
+                saved_port_id = self.config["Setup"]["port"]
+                saved_port_name = self.config["Setup"]["port_name"]
+                saved_potentiometers = self.config["Setup"]["potentiometers"]
+                
+                if saved_port_id != "None":
+                    self.selected_port = self.selected_port = serial.Serial(saved_port_id, 9600)
+                    self.SelectPortsBox.set(str(saved_port_name))
+                    self.ThreadFunction(self.ReadAndProcess)
+                    self.ReadAndProcess_active = True
+                
+                if saved_potentiometers != "None":
+                    for saved_device in ast.literal_eval(saved_potentiometers):
+                        self.detectedPotsAndFunctions.append([saved_device[0], saved_device[1], saved_device[2], saved_device[3]]) ####### Next feature: put the name of the program being pre-loaded into the correct potbox on startup.
+    
+            
+            except KeyError as e:
+                print(e)
+                pass
 
 OpenMixer()
