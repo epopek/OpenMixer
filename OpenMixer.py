@@ -57,7 +57,7 @@ class OpenMixer:
         
         self.Startup()
         
-        self.CreatePotComboFunctionBoxes()
+        #self.CreatePotComboFunctionBoxes()
 
         self.window.protocol("WM_DELETE_WINDOW", self.Shutdown)
         self.window.mainloop()
@@ -153,31 +153,27 @@ class OpenMixer:
         self.WriteConfigFile()
         self.stop_event.set()
         self.window.destroy() #destroy the window before closing the threads to make it appear that the program has been closed 
+        
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=2) #wait 2 seconds to close the active threads otherwise weird errors occur
         self.selected_port.close()
         
-    def SetPotFunctions(self, id, pot_num, pot_name): ##############################FIX THIS FUNCTION - it should check if there is already a function set for the pot and removes it from this list if there is and updates it with the new selected funciton
+    def SetPotFunctions(self, id, pot_num, pot_name):
         selected_func = id.widget.get()
+        
+        pot_found = False
+        
+        for i in range(len(self.detectedPotsAndFunctions)):
+            pot_index = self.detectedPotsAndFunctions[i][0]
     
-        if len(self.detectedPotsAndFunctions) != 0:
-            for x in range(len(self.detectedPotsAndFunctions)):
-                index_pot = self.detectedPotsAndFunctions[x][0] 
-                try:
-                    if index_pot == pot_name:
-                        self.detectedPotsAndFunctions.remove(self.detectedPotsAndFunctions[x]) 
-                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
-                    else:
-                        self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
-                    
-                except IndexError as e:
-                    print(e)
-                    pass     
-        else:
+            if pot_index == pot_name:
+                self.detectedPotsAndFunctions[i] = [pot_name, pot_num, selected_func, str(id)]
+                pot_found = True
+                break
+        
+        if not pot_found:
             self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
-        #print(self.detectedPotsAndFunctions)
-        #self.config.set("Setup", pot_name, str([pot_name, pot_num, selected_func]))
-    
+        
     def CreatePotComboFunctionBoxes(self):
         boxes = ["Pot 1", "Pot 2", "Pot 3", "Pot 4"]
         grid_space = 0
@@ -205,8 +201,8 @@ class OpenMixer:
     def IterateNewPrograms(self):#Constatly updates the list of active programs and removes them once they're no longer detected running
         if not self.stop_event.is_set():
             self.all_apps = []
-            self.all_apps.append('microphone')
-            self.all_apps.append('master')
+            self.all_apps.append('microphone') #Set this as a defauly option              
+            self.all_apps.append('master') # Set this as a default option
             try: #need this try and except block otherwise the tkinter window would crash  
                 for session in self.sessions:
                         process = session.Process
@@ -225,30 +221,11 @@ class OpenMixer:
     def IsWindowClosed(self):
         return self.window.winfo_exists()
 
-    def ReadConfigFile(self):
-        
-        return 
-    
     def WriteConfigFile(self):
         with open(self.SetupFileName, "w") as settings:
             self.config.write(settings)
             print("Data written")
 
-    def set_microphone_volume(self, volume_level): #be able to set microphone level
-        print(volume_level)
-        # Find the microphone device
-        # for device in self.devices:
-        #     print(device)
-        #     if device.Type == 'Capture': 
-        #         print(device)
-        #         # endpoint = AudioUtilities.GetDevice(device.id)
-        #         # volume = endpoint.Activate(ISimpleAudioVolume, CLSCTX_ALL, None)
-               
-        #         # volume.SetMasterVolume(volume_level, None)
-        #         # print(f"Microphone volume set to {volume_level * 100}%")
-        #         # return
-        # print("Microphone not found.")
-    
     def center_window(self):
         # Get the screen dimensions
         screen_width = self.window.winfo_screenwidth()
@@ -262,6 +239,10 @@ class OpenMixer:
         
         # Set the dimensions and position of the window
         self.window.geometry(f'{width}x{height}+{x}+{y}')
+
+    def PlaceDefaultTextPotBox(self, index, preloadtext):
+        combobox = self.potboxlist[index]
+        combobox.set(preloadtext)
 
     def Startup(self):
         if os.path.exists(self.SetupFileName) == False: #check if the path exists, and if it doesn't then create it. 
@@ -280,10 +261,11 @@ class OpenMixer:
                     self.ThreadFunction(self.ReadAndProcess)
                     self.ReadAndProcess_active = True
                 
+                self.CreatePotComboFunctionBoxes()
                 if saved_potentiometers != "None":
                     for saved_device in ast.literal_eval(saved_potentiometers):
-                        self.detectedPotsAndFunctions.append([saved_device[0], saved_device[1], saved_device[2], saved_device[3]]) ####### Next feature: put the name of the program being pre-loaded into the correct potbox on startup.
-    
+                        self.detectedPotsAndFunctions.append([saved_device[0], saved_device[1], saved_device[2], saved_device[3]])
+                        self.PlaceDefaultTextPotBox(saved_device[1], saved_device[2])
             
             except KeyError as e:
                 print(e)

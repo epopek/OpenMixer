@@ -25,6 +25,7 @@ Serial.begin(9600);
 //Serial.println("Established");
 for (int i = 0; i < list_size; i++) {
         InputAxisPreValues[i] = analogRead(InputAxis[i]);
+        
   }
 }
 
