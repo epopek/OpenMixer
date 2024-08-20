@@ -17,10 +17,9 @@ import os
 class OpenMixer:
 
     def __init__(self):
-        super().__init__()
-        
+
         self.window = Tk() #initialize window
-        self.window.geometry("1000x500")#set window size in pixels
+        #self.window.geometry("400x400")#set window size in pixels
         self.window.title("OpenMixer")
         self.center_window()
         self.stop_event = threading.Event() #This is the stop event for all the threads and helps them shut down when the program is closed
@@ -42,25 +41,27 @@ class OpenMixer:
         self.Configdata = {}
         self.config.add_section("Setup")
         
-        def findAvailiblePorts():
-            ports = serial.tools.list_ports.comports()
-            for port in ports:
-                self.active_ports.append(f"['{port.device}', '{port.description}', '{port.manufacturer}']")    
-        findAvailiblePorts()
-        
         self.SelectPortsBox = ttk.Combobox(state='readonly', values=self.active_ports, width=50) 
         self.SelectPortsBox.set('Select Port')
         self.SelectPortsBox.bind("<<ComboboxSelected>>", self.EstablishPortConnection)
         self.SelectPortsBox.grid(row=1, column=8) 
+
+        self.CustomizeArduinoCodeButton = Button(text="Edit and Upload Code", command= self.OpenTopLevel)
+        self.CustomizeArduinoCodeButton.grid(row=15, column=8)
         
         self.ReadAndProcess_active = False
         
         self.Startup()
         
-        #self.CreatePotComboFunctionBoxes()
-
         self.window.protocol("WM_DELETE_WINDOW", self.Shutdown)
         self.window.mainloop()
+    
+    def findAvailiblePorts(self):
+            ports = serial.tools.list_ports.comports()
+            for port in ports:
+                if port not in self.active_ports:
+                    self.active_ports.append(f"['{port.device}', '{port.description}', '{port.manufacturer}']")   
+            self.SelectPortsBox['values'] = self.active_ports
     
     def changeVolume(self, app, volume_level):
             try: #need this try and except block otherwise the tkinter window would crash
@@ -72,6 +73,7 @@ class OpenMixer:
                         print(f"Set volume for {app} to {volume_level * 100}%")
             except:
                 pass
+    
     def Return_COM_Index(self): 
             index_COM = self.SelectPortsBox.current()
             return index_COM
@@ -93,7 +95,7 @@ class OpenMixer:
                 self.config.set("Setup", "port_name", str(self.selected_port.name))
                 
                 if self.ReadAndProcess_active == False:
-                    self.ThreadFunction(self.ReadandProcess)
+                    self.ThreadFunction(self.ReadAndProcess)
                 
             except Exception as e:
                 messagebox.showerror("Port Busy",message=f"Port: {selected[0]} is currently in use by another application")
@@ -188,10 +190,13 @@ class OpenMixer:
             potlabel.grid(row=1+grid_space, column=4)
             grid_space += 4
 
-    # def StartUp():
-    #     query_numberofPOTS = self.selected_port.send("?POTS\n")
-    #     return query_numberofPOTS
-    
+    def QueryDevice(self, command):
+        
+        self.stop_event.set()
+        self.selected_port.write(command.encode())
+        response = self.selected_port.read()
+        #print(response)
+        
     def DetectNewPrograms(self): #Constantly searches for new programs that were opened and can be controlled
         while not self.stop_event.is_set():
             self.sessions = AudioUtilities.GetAllSessions()
@@ -225,19 +230,18 @@ class OpenMixer:
         with open(self.SetupFileName, "w") as settings:
             self.config.write(settings)
             print("Data written")
-
+        
     def center_window(self):
-        # Get the screen dimensions
+        
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
         
-        width = 1000
-        height = 500
-        # Calculate the position of the window
+        width = 600
+        height = 200
+        
         x = (screen_width // 2) - (width // 2)
         y = (screen_height // 2) - (height // 2)
         
-        # Set the dimensions and position of the window
         self.window.geometry(f'{width}x{height}+{x}+{y}')
 
     def PlaceDefaultTextPotBox(self, index, preloadtext):
@@ -248,6 +252,8 @@ class OpenMixer:
         if os.path.exists(self.SetupFileName) == False: #check if the path exists, and if it doesn't then create it. 
             with open(self.SetupFileName, "x") as f:
                 self.WriteConfigFile()
+            self.CreatePotComboFunctionBoxes()
+            
         else:
             self.config.read(self.SetupFileName)
             try:
@@ -256,19 +262,38 @@ class OpenMixer:
                 saved_potentiometers = self.config["Setup"]["potentiometers"]
                 
                 if saved_port_id != "None":
-                    self.selected_port = self.selected_port = serial.Serial(saved_port_id, 9600)
-                    self.SelectPortsBox.set(str(saved_port_name))
-                    self.ThreadFunction(self.ReadAndProcess)
-                    self.ReadAndProcess_active = True
+                    try: 
+                        self.selected_port = self.selected_port = serial.Serial(saved_port_id, 9600)
+                        self.SelectPortsBox.set(str(saved_port_name))
+                        self.ThreadFunction(self.ReadAndProcess)
+                        self.ReadAndProcess_active = True
+                    
+                    except serial.SerialException: #Rasied when the COM port isn't found (ex: the device isn't plugged in).
+                        self.SelectPortsBox.set(f"'{saved_port_name}' NOT FOUND")
                 
                 self.CreatePotComboFunctionBoxes()
                 if saved_potentiometers != "None":
                     for saved_device in ast.literal_eval(saved_potentiometers):
                         self.detectedPotsAndFunctions.append([saved_device[0], saved_device[1], saved_device[2], saved_device[3]])
                         self.PlaceDefaultTextPotBox(saved_device[1], saved_device[2])
-            
             except KeyError as e:
-                print(e)
+                print("Line 277 ", e)
                 pass
+
+        self.ThreadFunction(self.findAvailiblePorts())
+    
+    def OpenTopLevel(self):
+        def SaveAndUpload():
+            self.QueryDevice("?LIST")
+        
+        self.UploadandEditCodeWindow = Toplevel()
+        self.UploadandEditCodeWindow.geometry("400x400")
+        #self.UploadandEditCodeWindow.title("OpenMixer - Edit and Upload Code")
+        
+        PinNumbersBox = Text(self.UploadandEditCodeWindow, bg='gray', height=1, width=15)
+        PinNumbersBox.grid(row=0, column=0)
+
+        SaveButton = Button(self.UploadandEditCodeWindow, command=SaveAndUpload, text="Save and Upload")
+        SaveButton.grid(row=5, column=5)
 
 OpenMixer()

@@ -31,20 +31,8 @@ for (int i = 0; i < list_size; i++) {
 
 void loop() {
 
-ReadInputs();
+  ReadInputs();
 
-// pot1_val = analogRead(pot1_pin);
-// pot2_val = analogRead(pot2_pin);
-
-// pot1_val = map(pot1_val, 0, 1023, 0, 100);
-// pot2_val = map(pot2_val, 0, 1023, 0, 100);
-
-    // if (abs(pot1_val - PreviousPot1Val) >=MinChange||abs(pot2_val - PreviousPot2Val) >=MinChange){ //prevents Pots from sending data constantly (they only send when change is detected).
-    //   //Serial.print(pot1_val); Serial.print(","); Serial.println(pot2_val);
-    //   PreviousPot1Val = pot1_val;
-    //   PreviousPot2Val = pot2_val;
-    // }
-  
   if (Serial.available() > 0){
     char incomingChar = Serial.read();
     if (incomingChar == '\r' || incomingChar == '\n'){
@@ -57,12 +45,6 @@ ReadInputs();
         }
       }
     }
-}
-
-void ProcessCommand(char*command){
-   if (strncmp(command, "?POTS",5)==0){ //query the number of pots connected to the arduino on startup of the software.
-    Serial.println("2");
-  }
 }
 
 void ReadInputs() {
@@ -82,4 +64,17 @@ void ReadInputs() {
     if (change) {
         Serial.println(StringAxis);
     }
+}
+
+void ProcessCommand(char*command){
+   if (strncmp(command, "?LIST",5)==0){ //query the number of pots connected to the arduino on startup of the software.
+    
+    for (int x=0; x < list_size; x++) {
+      Serial.print(InputAxis[x]);
+      if (x != list_size-1) {
+        Serial.print(",");
+      }
+    }
+  }
+  Serial.println();
 }
