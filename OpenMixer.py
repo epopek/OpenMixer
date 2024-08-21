@@ -13,6 +13,7 @@ import configparser
 import time
 import configparser
 import os 
+import logging
 
 class OpenMixer:
 
@@ -50,11 +51,16 @@ class OpenMixer:
         self.CustomizeArduinoCodeButton.grid(row=15, column=8)
         
         self.ReadAndProcess_active = False
+        self.TopLevelWindowActive = False
         
         self.Startup()
         
         self.window.protocol("WM_DELETE_WINDOW", self.Shutdown)
         self.window.mainloop()
+    
+    def Close_TopLevel(self):
+        self.TopLevelWindowActive = False
+        self.UploadandEditCodeWindow.destroy()
     
     def findAvailiblePorts(self):
             ports = serial.tools.list_ports.comports()
@@ -134,6 +140,10 @@ class OpenMixer:
                                 self.set_microphone_volume(volume_value)
                         except ValueError:
                             print(f"Error: Invalid value received: {data_to_list[pot_index]}")
+                            if data_to_list[0] == "RESPONSE":
+                                data_to_list.remove(data_to_list[0])
+                                self.PinNumbersBox.insert("1.0", data_to_list)
+                                print('inserted')
                     else:
                         print(f"Error: Index {pot_index} not in range")
                     num += 1
@@ -191,11 +201,7 @@ class OpenMixer:
             grid_space += 4
 
     def QueryDevice(self, command):
-        
-        self.stop_event.set()
-        self.selected_port.write(command.encode())
-        response = self.selected_port.read()
-        #print(response)
+        self.selected_port.write(bytes(command, 'utf-8')) 
         
     def DetectNewPrograms(self): #Constantly searches for new programs that were opened and can be controlled
         while not self.stop_event.is_set():
@@ -265,6 +271,7 @@ class OpenMixer:
                     try: 
                         self.selected_port = self.selected_port = serial.Serial(saved_port_id, 9600)
                         self.SelectPortsBox.set(str(saved_port_name))
+                        
                         self.ThreadFunction(self.ReadAndProcess)
                         self.ReadAndProcess_active = True
                     
@@ -281,19 +288,30 @@ class OpenMixer:
                 pass
 
         self.ThreadFunction(self.findAvailiblePorts())
+        
     
     def OpenTopLevel(self):
+        
         def SaveAndUpload():
-            self.QueryDevice("?LIST")
+            SaveButton.config(bg="green")
+            self.UploadandEditCodeWindow.destroy()
+            self.TopLevelWindowActive = False
         
-        self.UploadandEditCodeWindow = Toplevel()
-        self.UploadandEditCodeWindow.geometry("400x400")
-        #self.UploadandEditCodeWindow.title("OpenMixer - Edit and Upload Code")
-        
-        PinNumbersBox = Text(self.UploadandEditCodeWindow, bg='gray', height=1, width=15)
-        PinNumbersBox.grid(row=0, column=0)
-
-        SaveButton = Button(self.UploadandEditCodeWindow, command=SaveAndUpload, text="Save and Upload")
-        SaveButton.grid(row=5, column=5)
-
+        if not self.TopLevelWindowActive:
+            self.UploadandEditCodeWindow = Toplevel()
+            self.UploadandEditCodeWindow.geometry("400x400")
+            #self.UploadandEditCodeWindow.title("OpenMixer - Edit and Upload Code")
+            
+            self.PinNumbersBox = Text(self.UploadandEditCodeWindow, bg='gray', height=1, width=15)
+            self.PinNumbersBox.grid(row=0, column=0)
+            self.PinNumbersBox.insert("1.0", "")
+            
+            SaveButton = Button(self.UploadandEditCodeWindow, command=SaveAndUpload, text="Save and Upload")
+            SaveButton.grid(row=5, column=5)
+            
+            print("305")
+            
+            self.QueryDevice("?LIST\n")
+            self.TopLevelWindowActive = True
+            self.UploadandEditCodeWindow.protocol("WM_DELETE_WINDOW", self.Close_TopLevel)
 OpenMixer()

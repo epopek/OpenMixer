@@ -68,13 +68,17 @@ void ReadInputs() {
 
 void ProcessCommand(char*command){
    if (strncmp(command, "?LIST",5)==0){ //query the number of pots connected to the arduino on startup of the software.
-    
+    Serial.print("RESPONSE,");
     for (int x=0; x < list_size; x++) {
       Serial.print(InputAxis[x]);
       if (x != list_size-1) {
         Serial.print(",");
       }
     }
+  }
+  else {
+    Serial.print("Unknown Command: ");
+    Serial.print(command);
   }
   Serial.println();
 }
