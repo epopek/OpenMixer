@@ -9,7 +9,7 @@ OpenMixer operates with two main components that communicate over a serial conne
 
 2. Python Software: This runs on your PC and listens for the data sent from the Arduino. Based on the received values, it adjusts the volume of the selected application.
 
-#Setup Instructions
+# Setup Instructions
 
 1. Connect the Potentiometers: Wire your potentiometers to the Arduino according to the circuit diagram provided.
 
@@ -19,11 +19,11 @@ OpenMixer operates with two main components that communicate over a serial conne
 
 4. Run the Python Software: Start the Python software, and it will begin communicating with the Arduino to control the volume of your applications.
 
-#Customization
+# Customization
 
-This project was built in my spare time, so it may not be packed with advanced features. However, if you have some technical skills, feel free to modify and extend the software to fit your needs. You can customize the code to adjust different aspects of the volume control or integrate additional features.
-Disclaimer
+This project was built in my spare time, so it may not be packed with advanced features. However, if you have the technical skills, feel free to modify and extend the software to fit your needs. You can customize the code to adjust different aspects of the volume control or integrate additional features.
 
+# Disclaimer
 This project is provided as-is and was developed as a personal project. It may require adjustments based on your specific setup and preferences.
 
 
