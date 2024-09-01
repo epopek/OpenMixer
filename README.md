@@ -5,7 +5,7 @@ DIY volume control sliders for applications on your PC.
 
 OpenMixer operates with two main components that communicate over a serial connection to manage your PC's audio settings:
 
-    1. Arduino Code: This is uploaded to the Arduino microcontroller. The microcontroller reads the values from the connected potentiometers (sliders/knobs) and sends this data via serial (over USB) to the PC.
+    Arduino Code: This is uploaded to the Arduino microcontroller. The microcontroller reads the values from the connected potentiometers (sliders/knobs) and sends this data via serial (over USB) to the PC.
 
     2. Python Software: This runs on your PC and listens for the data sent from the Arduino. Based on the received values, it adjusts the volume of the selected application.
 
