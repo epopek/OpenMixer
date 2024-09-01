@@ -13,31 +13,28 @@ import configparser
 import time
 import configparser
 import os 
-import logging
 
 class OpenMixer:
 
     def __init__(self):
 
         self.window = Tk() #initialize window
-        #self.window.geometry("400x400")#set window size in pixels
         self.window.title("OpenMixer")
         self.center_window()
         self.stop_event = threading.Event() #This is the stop event for all the threads and helps them shut down when the program is closed
         
-        self.all_apps = [] 
-        self.potboxlist = []
+        self.all_apps = [] #Puts all the apps detected to be running in this list
+        self.potboxlist = [] #puts the addresses of the potentiometer Tkinter Combobox objects, so they can be referenced  
         
-        self.sessions = AudioUtilities.GetAllSessions()
-        self.devices = AudioUtilities.GetAllDevices()
-
-        self.ProgramDetectionThread = threading.Thread(target=self.DetectNewPrograms)
+        self.sessions = AudioUtilities.GetAllSessions() #find all active programs
+    
+        self.ProgramDetectionThread = threading.Thread(target=self.DetectNewPrograms) #run the function which searches for new programs in the background, so that it can always find new sessions as they are initialized (user opens another program that they want to control)
         self.ProgramDetectionThread.start()
 
-        self.detectedPotsAndFunctions = []
-        self.active_ports = []
+        self.detectedPotsAndFunctions = [] #puts the functions of the potentiometers in this box. Ex: Pot 1, FireFox.exe
+        self.active_ports = [] #stores all the active COM ports in this array
         
-        self.config = configparser.ConfigParser()
+        self.config = configparser.ConfigParser() #Configparser for saving the state of the settings/preferences of the user, so they can be auto-loaded on startup
         self.SetupFileName = "OpenMixerSetup.ini"
         self.Configdata = {}
         self.config.add_section("Setup")
@@ -47,29 +44,22 @@ class OpenMixer:
         self.SelectPortsBox.bind("<<ComboboxSelected>>", self.EstablishPortConnection)
         self.SelectPortsBox.grid(row=1, column=8) 
 
-        self.CustomizeArduinoCodeButton = Button(text="Edit and Upload Code", command= self.OpenTopLevel)
-        self.CustomizeArduinoCodeButton.grid(row=15, column=8)
         
         self.ReadAndProcess_active = False
-        self.TopLevelWindowActive = False
         
         self.Startup()
         
-        self.window.protocol("WM_DELETE_WINDOW", self.Shutdown)
+        self.window.protocol("WM_DELETE_WINDOW", self.Shutdown) #executes "self.shutdown" function when the window (UI) is detected as closed
         self.window.mainloop()
     
-    def Close_TopLevel(self):
-        self.TopLevelWindowActive = False
-        self.UploadandEditCodeWindow.destroy()
-    
-    def findAvailiblePorts(self):
+    def findAvailablePorts(self): #search for all comports and upload them to the array (this function runs in the background and will constantly search for new COMS)
             ports = serial.tools.list_ports.comports()
             for port in ports:
                 if port not in self.active_ports:
                     self.active_ports.append(f"['{port.device}', '{port.description}', '{port.manufacturer}']")   
             self.SelectPortsBox['values'] = self.active_ports
     
-    def changeVolume(self, app, volume_level):
+    def changeVolume(self, app, volume_level): #Function changes the volume of the program
             try: #need this try and except block otherwise the tkinter window would crash
                 for session in self.sessions: 
                     process = session.Process# Get the process associated with the session
@@ -80,11 +70,11 @@ class OpenMixer:
             except:
                 pass
     
-    def Return_COM_Index(self): 
+    def Return_COM_Index(self): #Returns the index of the selected COM port
             index_COM = self.SelectPortsBox.current()
             return index_COM
     
-    def EstablishPortConnection(self, event):
+    def EstablishPortConnection(self, event): #Connect to the port the user selects, and also store that information in the configparser object to be written to the ini file later.
             try:
                 set_port = self.config["Setup"]["port"]
             except KeyError:
@@ -100,19 +90,19 @@ class OpenMixer:
                 self.config.set("Setup", "Port", str(selected[0]))
                 self.config.set("Setup", "port_name", str(self.selected_port.name))
                 
-                if self.ReadAndProcess_active == False:
+                if self.ReadAndProcess_active == False: 
                     self.ThreadFunction(self.ReadAndProcess)
                 
             except Exception as e:
                 messagebox.showerror("Port Busy",message=f"Port: {selected[0]} is currently in use by another application")
                 print(e)
 
-    def ThreadFunction(self, targetFunction):
+    def ThreadFunction(self, targetFunction): #Function runs other functions in the background
         self.stop_event.clear()
         self.thread = threading.Thread(target=targetFunction) #Run the ReadAndProcess function similtaneously otherwise the tkinter window is unable to update and crashes
         self.thread.start()
 
-    def ReadAndProcess(self):
+    def ReadAndProcess(self): #Read the data from the arduino (COM port)
         num = 0
         while not self.stop_event.is_set():
             try:
@@ -134,10 +124,7 @@ class OpenMixer:
                     if pot_index < len(data_to_list):
                         try:
                             volume_value = int(data_to_list[pot_index]) / 100
-                            if app_name != 'microphone':
-                                self.changeVolume(app_name, volume_value)
-                            elif app_name =='microphone':
-                                self.set_microphone_volume(volume_value)
+                            self.changeVolume(app_name, volume_value)  
                         except ValueError:
                             print(f"Error: Invalid value received: {data_to_list[pot_index]}")
                             if data_to_list[0] == "RESPONSE":
@@ -160,7 +147,7 @@ class OpenMixer:
                 print(f"Unexpected Error - {e}")
                 self.stop_event.set()
 
-    def Shutdown(self):
+    def Shutdown(self): #destroys the window (UI), ends the background funcitons (threads), and writes to the config file when the UI is detected closed
         self.config.set("Setup", "Potentiometers", str(self.detectedPotsAndFunctions))
         self.WriteConfigFile()
         self.stop_event.set()
@@ -170,7 +157,7 @@ class OpenMixer:
             self.thread.join(timeout=2) #wait 2 seconds to close the active threads otherwise weird errors occur
         self.selected_port.close()
         
-    def SetPotFunctions(self, id, pot_num, pot_name):
+    def SetPotFunctions(self, id, pot_num, pot_name): #set the potentiometers function
         selected_func = id.widget.get()
         
         pot_found = False
@@ -186,7 +173,7 @@ class OpenMixer:
         if not pot_found:
             self.detectedPotsAndFunctions.append([pot_name, pot_num, selected_func, str(id)])
         
-    def CreatePotComboFunctionBoxes(self):
+    def CreatePotComboFunctionBoxes(self): #Creates UI objects (comboboxes) for to select the potentiometers functions
         boxes = ["Pot 1", "Pot 2", "Pot 3", "Pot 4"]
         grid_space = 0
         
@@ -200,9 +187,6 @@ class OpenMixer:
             potlabel.grid(row=1+grid_space, column=4)
             grid_space += 4
 
-    def QueryDevice(self, command):
-        self.selected_port.write(bytes(command, 'utf-8')) 
-        
     def DetectNewPrograms(self): #Constantly searches for new programs that were opened and can be controlled
         while not self.stop_event.is_set():
             self.sessions = AudioUtilities.GetAllSessions()
@@ -211,8 +195,7 @@ class OpenMixer:
     
     def IterateNewPrograms(self):#Constatly updates the list of active programs and removes them once they're no longer detected running
         if not self.stop_event.is_set():
-            self.all_apps = []
-            self.all_apps.append('microphone') #Set this as a defauly option              
+            self.all_apps = []              
             self.all_apps.append('master') # Set this as a default option
             try: #need this try and except block otherwise the tkinter window would crash  
                 for session in self.sessions:
@@ -254,7 +237,7 @@ class OpenMixer:
         combobox = self.potboxlist[index]
         combobox.set(preloadtext)
 
-    def Startup(self):
+    def Startup(self): #sets up the program on initialization, like setting the previously applied settings by defauly (if any are saved)
         if os.path.exists(self.SetupFileName) == False: #check if the path exists, and if it doesn't then create it. 
             with open(self.SetupFileName, "x") as f:
                 self.WriteConfigFile()
@@ -287,31 +270,5 @@ class OpenMixer:
                 print("Line 277 ", e)
                 pass
 
-        self.ThreadFunction(self.findAvailiblePorts())
-        
-    
-    def OpenTopLevel(self):
-        
-        def SaveAndUpload():
-            SaveButton.config(bg="green")
-            self.UploadandEditCodeWindow.destroy()
-            self.TopLevelWindowActive = False
-        
-        if not self.TopLevelWindowActive:
-            self.UploadandEditCodeWindow = Toplevel()
-            self.UploadandEditCodeWindow.geometry("400x400")
-            #self.UploadandEditCodeWindow.title("OpenMixer - Edit and Upload Code")
-            
-            self.PinNumbersBox = Text(self.UploadandEditCodeWindow, bg='gray', height=1, width=15)
-            self.PinNumbersBox.grid(row=0, column=0)
-            self.PinNumbersBox.insert("1.0", "")
-            
-            SaveButton = Button(self.UploadandEditCodeWindow, command=SaveAndUpload, text="Save and Upload")
-            SaveButton.grid(row=5, column=5)
-            
-            print("305")
-            
-            self.QueryDevice("?LIST\n")
-            self.TopLevelWindowActive = True
-            self.UploadandEditCodeWindow.protocol("WM_DELETE_WINDOW", self.Close_TopLevel)
+        self.ThreadFunction(self.findAvailablePorts())
 OpenMixer()
