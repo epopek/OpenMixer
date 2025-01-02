@@ -11,7 +11,7 @@ OpenMixer operates with two main components that communicate over a serial conne
 
 # Setup Instructions
 
-1. Connect the Potentiometers: Wire your potentiometers to the Arduino according to the circuit diagram provided.
+1. Connect the Potentiometers: Wire your potentiometers to the Arduino 
 
 2. Upload the Arduino Code: Use the Arduino IDE to upload the provided code to your Arduino.
 
